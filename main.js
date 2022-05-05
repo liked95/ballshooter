@@ -27,6 +27,25 @@ class Player{
         this.y = y;
         this.radius = radius;
         this.color = color;
+        // moving speed
+        this.vel = 10;
+
+        addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'a':
+                    this.x -= this.vel;
+                    break;
+                case 'd':
+                    this.x += this.vel;
+                    break;
+                case 'w':
+                    this.y -= this.vel;
+                    break;
+                case 's':
+                    this.y += this.vel;
+                    break;
+            }
+        });
     }
 
     draw() {
@@ -53,13 +72,14 @@ function init(){
     score = 0;
     scoreBoard.textContent = `Score: 0`;
 }
-player.draw();
 
-function spawnEnemies(){
+
+function spawnEnemies() {
     setInterval(()=>{
         const radius = randomNumBetween(20, 50);
         let x;
         let y;
+        // Ensure enemies spawn from the edge
         if (Math.random() < 0.5){
             x = Math.random() < 0.5 ? 0 - radius: canvas.width + radius;
             y = Math.random()*canvas.height;
@@ -72,7 +92,7 @@ function spawnEnemies(){
 
         const color = randomRGB();
 
-        const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
+        const angle = Math.atan2(player.y- y, player.x - x);
         const enemyVelocity = {x: Math.cos(angle), y: Math.sin(angle)}    
         
         enemies.push(new Enemy(x, y, radius, color, enemyVelocity));
@@ -80,10 +100,20 @@ function spawnEnemies(){
 }
 
 
-class Projectile extends Player {
+class Projectile{
     constructor(x, y, radius, color, vel){
-        super(x, y, radius, color);
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.color = color;
         this.vel = vel;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+        ctx.fillStyle = this.color;
+        ctx.fill();
     }
 
     update(){
@@ -216,16 +246,19 @@ function animate(){
 
 addEventListener('click', e =>{
     
-    const angle = Math.atan2(e.clientY - canvas.height/2, e.clientX - canvas.width/2);
+    const angle = Math.atan2(e.clientY - player.y, e.clientX - player.x);
     const baseVelocity = {x: speed*Math.cos(angle), y: speed*Math.sin(angle)}    
 
-    const projectile = new Projectile(canvas.width/2 + player.radius*Math.cos(angle), canvas.height/2 + player.radius*Math.sin(angle), projectileRadius, 'orange', baseVelocity);
+    const projectile = new Projectile(player.x + player.radius*Math.cos(angle), player.y + player.radius*Math.sin(angle), projectileRadius, 'orange', baseVelocity);
     projectiles.push(projectile);
 });
+
+
 
 const container = document.querySelector('.container');
 const startBtn = document.querySelector('button');
 startBtn.addEventListener('click', () => {
+    
     init();
     animate();
     spawnEnemies();
