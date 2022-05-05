@@ -1,0 +1,69 @@
+body{
+    margin: 0;
+    position: relative;
+    display: table;
+    background-color: black;
+}
+
+.score{
+    color: white;
+    background-color: black;
+    position: fixed;
+    padding: 0.5rem;
+    font-size: 1rem;
+    font-family: cursive;
+    user-select: none;
+}
+
+.container{
+    position: fixed;
+    top: 75%;
+    left: 50%;
+    transform: translate(-47%, -50%);
+    width: 25%;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1{
+    margin: 0;
+    padding-top: 1rem;
+}
+
+.container p{
+    margin: 0;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.container div
+{
+    width: 80%;
+    border-radius: 14px;
+    margin-bottom: 2rem;
+}
+
+.container button
+{
+    font-size: 1.5em;
+    color: white;
+    width: 100%;
+    background-color: #fa983a;
+    border:none;
+    overflow: hidden;
+    padding: 1rem;
+    border-radius: 50px;
+}
+
+.container button:hover
+{
+   
+    background-color: #f6b93b;
+}
+
+.hidden{
+    visibility: hidden;
+}
