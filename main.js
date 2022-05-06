@@ -39,10 +39,12 @@ class Player{
         ctx.fill();
     }
 
-    update() {
-        this.draw();
-        this.x += this.vel;
-        this.y += this.vel
+    checkEdges() {
+        // check player edge
+        if (this.x + this.radius >= canvas.width) this.x -= this.radius
+        else if (this.x - this.radius <= 0) this.x += this.radius
+        else if (this.y + this.radius >= canvas.height) this.y -= this.radius
+        else if (this.y - this.radius <= 0) this.y += this.radius
     }
 }
 let enemyInterval = 1000;
@@ -110,12 +112,21 @@ class Projectile{
         this.draw();
         this.x += this.vel.x;
         this.y += this.vel.y;
+
     }
 }
 
 class Enemy extends Projectile{
     constructor(x, y, radius, color, vel){
         super(x, y, radius, color, vel);
+        // homing enemy
+        this.type = 'linear';
+        if (Math.random() < 0.2) this.type = 'homing';
+        if (Math.random() < 0.2) this.type = 'spinning';
+
+        //spinning radians
+        this.center = {x, y};
+        this.radians = 0;
     }
 
     draw() {
@@ -123,9 +134,34 @@ class Enemy extends Projectile{
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
         ctx.fillStyle = this.color;
         ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.stroke();
+        // ctx.strokeStyle = 'white';
+        // ctx.stroke();
     }
+
+    update(){
+         
+        if (this.type === 'linear'){
+            this.x += this.vel.x;
+            this.y += this.vel.y;
+        } else if (this.type === 'homing'){
+            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+            this.vel.x = Math.cos(angle);
+            this.vel.y = Math.sin(angle);
+
+            this.x += this.vel.x;
+            this.y += this.vel.y;
+            this.color = 'red';
+        } else if (this.type === 'spinning'){
+            this.radians += 0.05;
+            this.center.x += this.vel.x;
+            this.center.y += this.vel.y;
+            this.x = this.center.x + Math.cos(this.radians) * 100;
+            this.y = this.center.y + Math.sin(this.radians) * 100;
+        }
+        this.draw();
+    }
+
+    
 
 }
 
@@ -168,6 +204,7 @@ function animate(){
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     player.draw();
+    player.checkEdges();
     particles.forEach((particle, index) => {
         if (particle.alpha <= 0){
             particles.splice(index, 1);
