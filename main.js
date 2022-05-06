@@ -18,7 +18,8 @@ const gameOverScore = document.querySelector('h1');
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const speed = 3;
+const playerSpeed = 5;
+const projectileSpeed = 15;
 const projectileRadius = 5;
 
 class Player{
@@ -28,24 +29,7 @@ class Player{
         this.radius = radius;
         this.color = color;
         // moving speed
-        this.vel = 10;
-
-        addEventListener('keydown', e => {
-            switch (e.key) {
-                case 'a':
-                    this.x -= this.vel;
-                    break;
-                case 'd':
-                    this.x += this.vel;
-                    break;
-                case 'w':
-                    this.y -= this.vel;
-                    break;
-                case 's':
-                    this.y += this.vel;
-                    break;
-            }
-        });
+        this.speed = playerSpeed;
     }
 
     draw() {
@@ -54,8 +38,14 @@ class Player{
         ctx.fillStyle = this.color;
         ctx.fill();
     }
+
+    update() {
+        this.draw();
+        this.x += this.vel;
+        this.y += this.vel
+    }
 }
-let enemyInterval = 2000;
+let enemyInterval = 1000;
 const x = canvas.width/2;
 const y = canvas.height/2;
 let player = new Player(x, y, 30, 'white')
@@ -139,7 +129,7 @@ class Enemy extends Projectile{
 
 }
 
-const friction = 0.97;
+const friction = 0.99;
 class Particle extends Projectile
 {
     constructor(x, y, radius, color, vel){
@@ -211,7 +201,7 @@ function animate(){
         projectiles.forEach((projectile, projectileIndex )=>{
             const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
             // collision detection
-            if (dist <= projectile.radius+enemy.radius){
+            if (dist < projectile.radius+enemy.radius+1){
                 // Create explosion
                 
                 for (let i = 0; i < enemy.radius*2; i++){
@@ -247,7 +237,7 @@ function animate(){
 addEventListener('click', e =>{
     
     const angle = Math.atan2(e.clientY - player.y, e.clientX - player.x);
-    const baseVelocity = {x: speed*Math.cos(angle), y: speed*Math.sin(angle)}    
+    const baseVelocity = {x: projectileSpeed*Math.cos(angle), y: projectileSpeed*Math.sin(angle)}    
 
     const projectile = new Projectile(player.x + player.radius*Math.cos(angle), player.y + player.radius*Math.sin(angle), projectileRadius, 'orange', baseVelocity);
     projectiles.push(projectile);
@@ -266,4 +256,40 @@ startBtn.addEventListener('click', () => {
 });
 
 
+
+
+// Control player
+var keyState = {};
+
+window.addEventListener('keydown',function(e){
+    keyState[e.keypress || e.which] = true;
+},true);
+
+window.addEventListener('keyup',function(e){
+    keyState[e.keypress || e.which] = false;
+},true);
+
+
+
+function keyLoop() {
+    if (keyState[37] || keyState[65]){
+    player.x -= player.speed;
+    }
+
+    if (keyState[39] || keyState[68]){
+        player.x += player.speed;
+    }
+
+    if (keyState[38] || keyState[87]){
+        player.y -= player.speed;
+    }
+
+    if (keyState[40] || keyState[83]){
+        player.y += player.speed;
+    }
+    
+    setTimeout(keyLoop, 5);
+}
+
+keyLoop();
 
