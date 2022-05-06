@@ -18,7 +18,7 @@ const gameOverScore = document.querySelector('h1');
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const playerSpeed = 5;
+const playerSpeed = 10;
 const projectileSpeed = 15;
 const projectileRadius = 5;
 
@@ -57,9 +57,33 @@ class Player{
 
         projectiles.push(projectile); 
     }
-
-
 }
+
+class BackgroundParticle {
+    constructor(x, y, radius, color) {
+      this.x = x
+      this.y = y
+      this.radius = radius
+      this.color = color
+      this.alpha = 0.05
+      this.initialAlpha = this.alpha
+    }
+  
+    draw() {
+      ctx.save()
+      ctx.globalAlpha = this.alpha
+      ctx.beginPath()
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false)
+      ctx.fillStyle = this.color
+      ctx.fill()
+      ctx.restore()
+    }
+  
+    update() {
+      this.draw()
+      // this.alpha -= 0.01
+    }
+  }
 let enemyInterval = 2000;
 const x = canvas.width/2;
 const y = canvas.height/2;
@@ -67,6 +91,7 @@ let player = new Player(x, y, 30, 'white')
 let projectiles = [];
 let enemies = [];
 let particles = [];
+let backgroundParticles = [];
 let powerUps = [];
 let score = 0;
 
@@ -78,6 +103,11 @@ function init(){
     powerUps = [];
     score = 0;
     scoreBoard.textContent = `Score: 0`;
+    for (let x = 0; x < canvas.width; x += 30) {
+        for (let y = 0; y < canvas.height; y += 30) {
+          backgroundParticles.push(new BackgroundParticle(x, y, 3, 'blue'))
+        }
+    }
 }
 
 class Projectile{
@@ -300,7 +330,6 @@ class Particle extends Projectile
         this.y += this.vel.y;
         this.alpha -= 0.01;
     }
-
 }
 
 
@@ -315,6 +344,34 @@ function animate(){
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    backgroundParticles.forEach((backgroundParticle) => {
+        const dist = Math.hypot(
+          player.x - backgroundParticle.x,
+          player.y - backgroundParticle.y
+        )
+    
+        const hideRadius = 100
+        if (dist < hideRadius) {
+          if (dist < 70) {
+            backgroundParticle.alpha = 0
+          } else {
+            backgroundParticle.alpha = 0.5
+          }
+        } else if (
+          dist >= hideRadius &&
+          backgroundParticle.alpha < backgroundParticle.initialAlpha
+        ) {
+          backgroundParticle.alpha += 0.01
+        } else if (
+          dist >= hideRadius &&
+          backgroundParticle.alpha > backgroundParticle.initialAlpha
+        ) {
+          backgroundParticle.alpha -= 0.01
+        }
+    
+        backgroundParticle.update()
+      })
     player.draw();
     player.checkEdges();
     particles.forEach((particle, index) => {
