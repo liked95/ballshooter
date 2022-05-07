@@ -13,14 +13,16 @@ const scoreBoard = document.querySelector('.score span')
 const healthLabel = document.querySelector('.health-label span')
 const gameOverScore = document.querySelector('h1');
 
-const startGameAudio = new Audio('./audio/startGame.mp3')
+const startGameAudio = new Audio('./audio/startGame.wav')
 const endGameAudio = new Audio('./audio/endGame.wav')
 const shootAudio = new Audio('./audio/shoot.mp3')
 const enemyHitAudio = new Audio('./audio/enemyHit.mp3')
 const enemyEliminatedAudio = new Audio('./audio/enemyEliminated.mp3')
 const obtainPowerUpAudio = new Audio('./audio/obtainPowerUp.mp3')
+const healthUpAudio = new Audio('./audio/healthUp.mp3')
+const playerDamageAudio = new Audio('./audio/playerDamage.mp3')
 const backgroundAudio = new Audio('./audio/backgroundMusic.mp3')
-backgroundAudio.loop = true
+// backgroundAudio.loop = true
 
 const scene = {active: false}
 
@@ -44,7 +46,7 @@ class Player{
         this.color = color;
         // moving speed
         this.speed = playerSpeed;
-
+        this.playerStrokeColor = 'transparent';
         this.buff = '';
     }
 
@@ -53,6 +55,10 @@ class Player{
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
         ctx.fillStyle = this.color;
         ctx.fill();
+
+        ctx.strokeStyle = this.playerStrokeColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
     }
 
     checkEdges() {
@@ -231,8 +237,8 @@ class Enemy extends Projectile{
 
             this.x += this.vel.x;
             this.y += this.vel.y;
-            this.color = 'red';
-            this.strokeColor = 'blue';
+            this.color = 'orange';
+            this.strokeColor = 'red';
         } else if (this.type === 'spinning'){
             this.radians += 0.05;
             this.center.x += this.vel.x;
@@ -240,8 +246,8 @@ class Enemy extends Projectile{
             this.x = this.center.x + Math.cos(this.radians) * this.spinningRadius;
             this.y = this.center.y + Math.sin(this.radians) * this.spinningRadius;
         } else if (this.type === 'homeSpinning'){
-            this.strokeColor = 'white';
-            this.lineWidth = 3;
+            this.strokeColor = 'red';
+            this.lineWidth = 2;
 
             const angle = Math.atan2(player.y - this.y, player.x - this.x);
             this.vel.x = Math.cos(angle);
@@ -331,7 +337,7 @@ function createScoreLabel(projectile, score) {
 let animationID;
 let frame = 0;
 function animate(){
-    
+    console.log(player.buff)
     animationID = requestAnimationFrame(animate);
     frame++;
 
@@ -348,9 +354,9 @@ function animate(){
     });
 
 
-    console.log(player.radius)
+    
 
-    buffs.forEach((buff, index) => {
+    buffs.forEach((buff, buffIndex) => {
         const dist = Math.hypot(player.x - buff.x, player.y - buff.y);
         
     
@@ -360,7 +366,7 @@ function animate(){
             buff.x + buff.height/2 < 0 - 50 ||
             buff.y - buff.width/2 > canvas.height + 50||
             buff.y + buff.height/2 < 0 - 50) {
-                buffs.splice(index, 1);
+                buffs.splice(buffIndex, 1);
             }
         
         // if player got the power up
@@ -369,22 +375,40 @@ function animate(){
                 obtainPowerUpAudio.cloneNode().play();
                 player.color = '#FFF500';
                 player.buff = 'Automatic';
-                buffs.splice(index, 1);
+                buffs.splice(buffIndex, 1);
         
                 setTimeout(() => {
                     player.buff = null;
                     player.color = '#FFFFFF'
                 }, 10000)
             } else if (buff.type === 'healthup') {
-                playerHealth++;
-                player.color = 'blue';
-                player.buff = 'healthIncrease';
-                buffs.splice(index, 1);
+
+                setTimeout(()=>{
+                    const buffFound = buffs.find((buffValue) => {
+                        return buffValue === buff
+                    })
+
+                    if (buffFound) {
+                        buffs.splice(buffIndex, 1)
+                        if (playerHealth !== PLAYER_MAX_HEALTH) {
+                            playerHealth++;
+                            player.radius += 3;
+
+                            
+                        }
+                        player.playerStrokeColor = 'cornflowerblue';
+                        healthUpAudio.cloneNode().play();
+                        healthLabel.textContent=`Health: ${playerHealth}`;
+                    }
+                }, 0);    
+
+                
         
                 setTimeout(() => {
                     player.buff = null;
                     player.color = '#FFFFFF'
-                }, 2000)
+                    player.playerStrokeColor = 'transparent';
+                }, 5000)
 
             }
 
@@ -400,10 +424,10 @@ function animate(){
         }
     }
 
-    if (player.buff === 'healthIncrease') {
-        player.color = 'red';
-        playerHealth++;
-    }
+    // if (player.buff === 'healthIncrease') {
+    //     player.color = 'red';
+    //     playerHealth++;
+    // }
         
     
     projectiles.forEach((projectile, index)=> {
@@ -440,10 +464,11 @@ function animate(){
                 setTimeout(()=>{
                     enemies.splice(index, 1);
                 }, 0);  
-
+                playerDamageAudio.play();
                 healthLabel.textContent = `Health: ${playerHealth}`
                 
             } else {
+                backgroundAudio.pause();
                 endGameAudio.play();
                 scene.active = false;
                 cancelAnimationFrame(animationID);
@@ -498,21 +523,6 @@ function animate(){
                     enemyEliminatedAudio.cloneNode().play()
                     score += 100;
                     createScoreLabel(projectile, 100)
-
-                    // adjust background dots
-                    // backgroundParticles.forEach((backgroundParticle) => {
-                    //     backgroundParticle.color = enemy.color
-                    //     gsap.to(backgroundParticle, {
-                    //       alpha: 0.5,
-                    //       duration: 0.015,
-                    //       onComplete: () => {
-                    //         gsap.to(backgroundParticle, {
-                    //           alpha: backgroundParticle.initialAlpha,
-                    //           duration: 0.03
-                    //         })
-                    //       }
-                    //     })
-                    //   })
                     
                     setTimeout(()=>{
                         const enemyFound = enemies.find((enemyValue) => {
@@ -590,7 +600,10 @@ startBtn.addEventListener('click', () => {
     container.classList.toggle('hidden');
     startGameAudio.play();
     scene.active = true;
-    backgroundAudio.play();
+    setTimeout(()=>{
+        backgroundAudio.play();
+    }, 2000); 
+    
     
 });
 
