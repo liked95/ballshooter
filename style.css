@@ -8,7 +8,7 @@ body{
 
 .score{
     color: white;
-    background-color: black;
+    background-color: transparent;
     position: fixed;
     padding: 0.5rem;
     font-size: 1rem;
@@ -18,7 +18,7 @@ body{
 
 .health-label{
     color: white;
-    background-color: black;
+    background-color: transparent;
     position: fixed;
     padding: 0.5rem;
     font-size: 1rem;
