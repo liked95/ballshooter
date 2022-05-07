@@ -21,6 +21,8 @@ const enemyEliminatedAudio = new Audio('./audio/enemyEliminated.mp3')
 const obtainPowerUpAudio = new Audio('./audio/obtainPowerUp.wav')
 const healthUpAudio = new Audio('./audio/healthUp.mp3')
 const playerDamageAudio = new Audio('./audio/playerDamage.mp3')
+const explosionAudio = new Audio('./audio/explosion.mp3')
+
 const backgroundAudio = new Audio('./audio/backgroundMusic.mp3')
 // backgroundAudio.loop = true
 
@@ -159,6 +161,8 @@ const powerUpImg = new Image()
 powerUpImg.src = './img/lightning.png'
 const healthUpImg = new Image()
 healthUpImg.src = './img/healthup.png'
+const bombImg = new Image()
+bombImg.src = './img/bomb.png'
 
 class Buff extends Projectile {
     constructor(x, y, vel) {
@@ -171,11 +175,16 @@ class Buff extends Projectile {
             this.width = 14;
             this.height = 18;
             this.image = powerUpImg;
-        } else {
+        } else if (Math.random() >= 0.3 && Math.random() <0.7){
             this.type = 'healthup';
             this.width = 32;
             this.height = 32;
             this.image = healthUpImg;
+        } else {
+            this.type = 'bomb';
+            this.width = 40;
+            this.height = 40;
+            this.image = bombImg;
         }
     }
     draw() {
@@ -334,12 +343,12 @@ function createScoreLabel(projectile, score) {
     })
 }
 
-function createPlayerStatusLabel(status) {
+function createPlayerStatusLabel(status, color = 'white') {
     const playerStatus = document.createElement('label')
     playerStatus.innerHTML = status
     playerStatus.style.position = 'absolute'
     playerStatus.style.userSelect = 'none'
-    playerStatus.style.color = 'white'
+    playerStatus.style.color = color
     playerStatus.style.userSelect = 'none'
     playerStatus.style.left = `${player.x - player.radius*0.8}px`
     playerStatus.style.top = `${player.y + player.radius}px`
@@ -361,7 +370,6 @@ let frame = 0;
 function animate() {
 
     scoreBoard.textContent = `Score: ${score}`;
-    console.log(player.invincible)
     animationID = requestAnimationFrame(animate);
     frame++;
 
@@ -393,7 +401,7 @@ function animate() {
             buffs.splice(buffIndex, 1);
         }
 
-        // if player got the power up
+        // Buff effect
         if (dist <= player.radius + buff.width / 2) {
             if (buff.type === 'powerup') {
                 obtainPowerUpAudio.cloneNode().play();
@@ -401,9 +409,9 @@ function animate() {
                 player.buff = 'Automatic';
                 
                 if (Math.random() < 0.8) {
-                    createPlayerStatusLabel('Machine Gun');
+                    createPlayerStatusLabel('Machine Gun', '#FFF500');
                 } else {
-                    createPlayerStatusLabel('Hold LClick')
+                    createPlayerStatusLabel('Hold LClick', '#FFF500')
                 }
                 
                 buffs.splice(buffIndex, 1);
@@ -435,19 +443,17 @@ function animate() {
                         player.playerStrokeColor = 'cornflowerblue';
                         healthUpAudio.cloneNode().play();
                         if (playerHealth === PLAYER_MAX_HEALTH) {
-                            createPlayerStatusLabel('Invincible!');
+                            createPlayerStatusLabel('Invincible!', '#0fbcf9');
                         } else {
                             if (Math.random() < 0.5) {
-                                createPlayerStatusLabel('Invincible!');
+                                createPlayerStatusLabel('Invincible!', '#0fbcf9');
                             } else {
-                                createPlayerStatusLabel('+1 Life')
+                                createPlayerStatusLabel('+1 Life', '#0fbcf9')
                             }
                         }
                         healthLabel.textContent = `Life: ${playerHealth}`;
                     }
                 }, 0);
-
-
 
                 setTimeout(() => {
                     player.invincible = false;
@@ -455,13 +461,40 @@ function animate() {
                     player.playerStrokeColor = 'transparent';
                 }, 3000)
 
+            } else if (buff.type === 'bomb') {
+                setTimeout(() => {
+                    const buffFound = buffs.find((buffValue) => {
+                        return buffValue === buff
+                    });
+
+                    if (buffFound) {
+                        buffs.splice(buffIndex, 1)
+                        // Remove all enemies currently on the canvas
+                        // enemies.forEach((enemy, index) => {
+
+                        // })
+                        explosionAudio.cloneNode().play();
+                        createPlayerStatusLabel('Get lost!', 'tomato')
+                        score += enemies.length*100
+                        enemies.forEach((enemy, index) => {
+                            for (let i = 0; i < enemy.radius * 2; i++) {
+                                particles.push(new Particle(enemy.x, enemy.y, Math.random() * enemy.radius / 8, enemy.color, {
+                                    x: (Math.random() - 0.5) * (Math.random() * 6),
+                                    y: (Math.random() - 0.5) * (Math.random() * 6)
+                                }));
+                            }
+                        });
+
+                        enemies = [];
+                    }
+                }, 0);
             }
 
         } else {
             buff.update()
         }
     })
-
+    console.log(enemies.length)
     // Power ups
     if (player.buff === 'Automatic' && mouse.down) {
         if (frame % 8 === 0) {
