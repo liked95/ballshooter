@@ -16,6 +16,17 @@ body{
     user-select: none;
 }
 
+.health-label{
+    color: white;
+    background-color: black;
+    position: fixed;
+    padding: 0.5rem;
+    font-size: 1rem;
+    font-family: cursive;
+    user-select: none;
+    left: 25%;
+}
+
 .container{
     position: fixed;
     top: 75%;
