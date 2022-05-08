@@ -26,7 +26,7 @@ const slowEnemyAudio = new Audio('./audio/slow.mp3')
 const speedUpAudio = new Audio('./audio/speedup.mp3')
 
 const backgroundAudio = new Audio('./audio/backgroundMusic.mp3')
-// backgroundAudio.loop = true
+backgroundAudio.loop = true
 
 const scene = { active: false }
 
@@ -64,7 +64,7 @@ class Player {
         ctx.fill();
 
         ctx.strokeStyle = this.playerStrokeColor;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = this.radius*0.12;
         ctx.stroke();
     }
 
@@ -160,6 +160,7 @@ function init() {
     isEnemySlow = false;
     scoreBoard.textContent = `Score: 0`;
     healthLabel.textContent = `Life: ${playerHealth}`
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
 }
 
 // Create powerups
@@ -170,9 +171,9 @@ healthUpImg.src = './img/healthup.png'
 const bombImg = new Image()
 bombImg.src = './img/bomb.png'
 const slowImg = new Image()
-slowImg.src = './img/snowFlake.png'
+slowImg.src = './img/slow.png'
 const bootImg = new Image()
-bootImg.src = './img/boot.svg'
+bootImg.src = './img/boot.png'
 
 class Buff extends Projectile {
     constructor(x, y, vel) {
@@ -180,22 +181,22 @@ class Buff extends Projectile {
         this.radians = 0;
         this.vel = vel;
 
-        if (Math.random() < 0.1) {
+        if (Math.random() < 0.2) {
             this.type = 'powerup';
             this.width = 14;
             this.height = 18;
             this.image = powerUpImg;
-        } else if (Math.random() >= 0.1 && Math.random() < 0.2) {
+        } else if (Math.random() >= 0.2 && Math.random() < 0.4) {
             this.type = 'healthup';
             this.width = 32;
             this.height = 32;
             this.image = healthUpImg;
-        } else if (Math.random() >= 0.2 && Math.random() < 0.3) {
+        } else if (Math.random() >= 0.4 && Math.random() < 0.6) {
             this.type = 'bomb';
             this.width = 40;
             this.height = 40;
             this.image = bombImg;
-        } else if (Math.random() >= 0.3 && Math.random() < 0.7) {
+        } else if (Math.random() >= 0.6 && Math.random() < 0.8) {
             // player only
             this.type = 'speedUp';
             this.width = 35;
@@ -411,8 +412,12 @@ function animate() {
     scoreBoard.textContent = `Score: ${score}`;
     animationID = requestAnimationFrame(animate);
     frame++;
-
-    if (frame % 191 === 0) spawnEnemies();
+    if (score < 5000){
+        if (frame % 200 === 0) spawnEnemies();
+    } else {
+        if (frame % 100 === 0) spawnEnemies();
+    }
+    
     
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
@@ -449,13 +454,7 @@ function animate() {
                 obtainPowerUpAudio.cloneNode().play();
                 player.color = '#FFF500';
                 player.buff = 'Automatic';
-
-                if (Math.random() < 0.8) {
-                    createPlayerStatusLabel('Machine Gun', '#FFF500');
-                } else {
-                    createPlayerStatusLabel('Hold LClick', '#FFF500')
-                }
-
+                createPlayerStatusLabel('Machine Gun', '#FFF500');
                 buffs.splice(buffIndex, 1);
 
                 setTimeout(() => {
@@ -476,7 +475,7 @@ function animate() {
 
                             playerHealth++;
                             gsap.to(player, {
-                                radius: player.radius + 4
+                                radius: player.radius + 3
                             });
 
 
@@ -582,10 +581,14 @@ function animate() {
     })
 
     // Power ups
+    
     if (player.buff === 'Automatic' && mouse.down) {
-        if (frame % 8 === 0) {
+        if (frame % 10 === 0) {
             player.shoot(mouse, '#FFF500');
         }
+    } else if (mouse.down) {
+        if (frame % 20 === 0)
+        player.shoot(mouse, 'white')
     }
 
     // if (player.buff === 'healthIncrease') {
@@ -638,7 +641,7 @@ function animate() {
                     playerHealth--;
                     score -= 100;
                     gsap.to(player, {
-                        radius: player.radius - 4
+                        radius: player.radius - 3
                     });
                     createPlayerStatusLabel('-200');
                     playerDamageAudio.play();

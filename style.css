@@ -14,6 +14,7 @@ body{
     font-size: 1rem;
     font-family: cursive;
     user-select: none;
+    z-index: 100;
 }
 
 .health-label{
@@ -25,6 +26,7 @@ body{
     font-family: cursive;
     user-select: none;
     left: 25%;
+    z-index: 100;
 }
 
 .container{
