@@ -22,6 +22,8 @@ const obtainPowerUpAudio = new Audio('./audio/obtainPowerUp.wav')
 const healthUpAudio = new Audio('./audio/healthUp.mp3')
 const playerDamageAudio = new Audio('./audio/playerDamage.mp3')
 const explosionAudio = new Audio('./audio/explosion.mp3')
+const slowEnemyAudio = new Audio('./audio/slow.mp3')
+const speedUpAudio = new Audio('./audio/speedup.mp3')
 
 const backgroundAudio = new Audio('./audio/backgroundMusic.mp3')
 // backgroundAudio.loop = true
@@ -32,13 +34,15 @@ const scene = { active: false }
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const PLAYER_MAX_HEALTH = 5;
+const PLAYER_MAX_HEALTH = 10;
 let playerHealth = PLAYER_MAX_HEALTH;
 var playerRadius = 30;
-const playerSpeed = 5;
+let playerSpeed = 5;
 const projectileSpeed = 15;
 const projectileRadius = 5;
 const friction = 0.99;
+let enemySpeedCoefficient = 1;
+let isEnemySlow = false;
 
 class Player {
     constructor(x, y, radius, color) {
@@ -152,6 +156,8 @@ function init() {
     buffs = [];
     score = 0;
     playerHealth = PLAYER_MAX_HEALTH;
+    enemySpeedCoefficient = 1;
+    isEnemySlow = false;
     scoreBoard.textContent = `Score: 0`;
     healthLabel.textContent = `Life: ${playerHealth}`
 }
@@ -163,6 +169,10 @@ const healthUpImg = new Image()
 healthUpImg.src = './img/healthup.png'
 const bombImg = new Image()
 bombImg.src = './img/bomb.png'
+const slowImg = new Image()
+slowImg.src = './img/snowFlake.png'
+const bootImg = new Image()
+bootImg.src = './img/boot.svg'
 
 class Buff extends Projectile {
     constructor(x, y, vel) {
@@ -170,21 +180,32 @@ class Buff extends Projectile {
         this.radians = 0;
         this.vel = vel;
 
-        if (Math.random() < 0.3) {
+        if (Math.random() < 0.1) {
             this.type = 'powerup';
             this.width = 14;
             this.height = 18;
             this.image = powerUpImg;
-        } else if (Math.random() >= 0.3 && Math.random() <0.7){
+        } else if (Math.random() >= 0.1 && Math.random() < 0.2) {
             this.type = 'healthup';
             this.width = 32;
             this.height = 32;
             this.image = healthUpImg;
-        } else {
+        } else if (Math.random() >= 0.2 && Math.random() < 0.3) {
             this.type = 'bomb';
             this.width = 40;
             this.height = 40;
             this.image = bombImg;
+        } else if (Math.random() >= 0.3 && Math.random() < 0.7) {
+            // player only
+            this.type = 'speedUp';
+            this.width = 35;
+            this.height = 35;
+            this.image = bootImg;
+        } else {
+            this.type = 'slow';
+            this.width = 40;
+            this.height = 40;
+            this.image = slowImg;
         }
     }
     draw() {
@@ -197,13 +218,17 @@ class Buff extends Projectile {
     }
 
     update() {
-        this.radians += 0.02;
+        if (this.type === 'slow') {
+            this.radians += 0.008;
+        } else {
+            this.radians += 0.02;
+        }
+
         this.draw();
         this.x += this.vel.x;
         this.y += this.vel.y;
     }
 }
-
 
 
 class Enemy extends Projectile {
@@ -236,68 +261,82 @@ class Enemy extends Projectile {
 
     update() {
 
+
         if (this.type === 'linear') {
-            this.x += this.vel.x;
-            this.y += this.vel.y;
+            if (isEnemySlow) {
+                this.strokeColor = '#0097e6';
+            }
+            this.x += this.vel.x * enemySpeedCoefficient;
+            this.y += this.vel.y * enemySpeedCoefficient;
         } else if (this.type === 'homing') {
             const angle = Math.atan2(player.y - this.y, player.x - this.x);
             this.vel.x = Math.cos(angle);
             this.vel.y = Math.sin(angle);
 
-            this.x += this.vel.x;
-            this.y += this.vel.y;
+            this.x += this.vel.x * enemySpeedCoefficient;
+            this.y += this.vel.y * enemySpeedCoefficient;
             this.color = 'orange';
             this.strokeColor = 'red';
+            if (isEnemySlow) {
+                this.strokeColor = '#0097e6';
+            }
         } else if (this.type === 'spinning') {
-            this.radians += 0.05;
-            this.center.x += this.vel.x;
-            this.center.y += this.vel.y;
+            if (isEnemySlow) {
+                this.strokeColor = '#0097e6';
+            }
+            this.radians += 0.05 * enemySpeedCoefficient;
+            this.center.x += this.vel.x * enemySpeedCoefficient;
+            this.center.y += this.vel.y * enemySpeedCoefficient;
             this.x = this.center.x + Math.cos(this.radians) * this.spinningRadius;
             this.y = this.center.y + Math.sin(this.radians) * this.spinningRadius;
         } else if (this.type === 'homeSpinning') {
             this.strokeColor = 'red';
+            if (isEnemySlow) {
+                this.strokeColor = '#0097e6';
+            }
             this.lineWidth = 2;
 
             const angle = Math.atan2(player.y - this.y, player.x - this.x);
             this.vel.x = Math.cos(angle);
             this.vel.y = Math.sin(angle);
 
-            this.radians += 0.05;
-            this.center.x += this.vel.x;
-            this.center.y += this.vel.y;
+            this.radians += 0.05 * enemySpeedCoefficient;
+            this.center.x += this.vel.x * enemySpeedCoefficient;
+            this.center.y += this.vel.y * enemySpeedCoefficient;
 
             this.x = this.center.x + Math.cos(this.radians) * this.spinningRadius;
             this.y = this.center.y + Math.sin(this.radians) * this.spinningRadius;
         }
-
-
         this.draw();
     }
 }
 
 function spawnEnemies() {
-    setInterval(() => {
-        const radius = randomNumBetween(20, 50);
-        let x;
-        let y;
-        // Ensure enemies spawn from the edge
-        if (Math.random() < 0.5) {
-            x = Math.random() < 0.5 ? 0 - radius : canvas.width + radius;
-            y = Math.random() * canvas.height;
-        } else {
-            x = Math.random() * canvas.width;
-            y = Math.random() < 0.5 ? 0 - radius : canvas.height + radius;
-        }
+
+    const radius = randomNumBetween(20, 50);
+    let x;
+    let y;
+    // Ensure enemies spawn from the edge
+    if (Math.random() < 0.5) {
+        x = Math.random() < 0.5 ? 0 - radius : canvas.width + radius;
+        y = Math.random() * canvas.height;
+    } else {
+        x = Math.random() * canvas.width;
+        y = Math.random() < 0.5 ? 0 - radius : canvas.height + radius;
+    }
 
 
 
-        const color = randomRGB();
+    const color = randomRGB();
 
-        const angle = Math.atan2(player.y - y, player.x - x);
-        const enemyVelocity = { x: Math.cos(angle), y: Math.sin(angle) }
+    const angle = Math.atan2(player.y - y, player.x - x);
+    const enemyVelocity = {
+        x: Math.cos(angle),
+        y: Math.sin(angle)
+    }
 
-        enemies.push(new Enemy(x, y, radius, color, enemyVelocity));
-    }, enemyInterval)
+    enemies.push(new Enemy(x, y, radius, color, enemyVelocity));
+
 }
 
 function spawnBuffs() {
@@ -350,7 +389,7 @@ function createPlayerStatusLabel(status, color = 'white') {
     playerStatus.style.userSelect = 'none'
     playerStatus.style.color = color
     playerStatus.style.userSelect = 'none'
-    playerStatus.style.left = `${player.x - player.radius*0.8}px`
+    playerStatus.style.left = `${player.x - player.radius * 0.8}px`
     playerStatus.style.top = `${player.y + player.radius}px`
     document.body.appendChild(playerStatus)
 
@@ -372,6 +411,9 @@ function animate() {
     scoreBoard.textContent = `Score: ${score}`;
     animationID = requestAnimationFrame(animate);
     frame++;
+
+    if (frame % 191 === 0) spawnEnemies();
+    
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -407,13 +449,13 @@ function animate() {
                 obtainPowerUpAudio.cloneNode().play();
                 player.color = '#FFF500';
                 player.buff = 'Automatic';
-                
+
                 if (Math.random() < 0.8) {
                     createPlayerStatusLabel('Machine Gun', '#FFF500');
                 } else {
                     createPlayerStatusLabel('Hold LClick', '#FFF500')
                 }
-                
+
                 buffs.splice(buffIndex, 1);
 
                 setTimeout(() => {
@@ -437,18 +479,18 @@ function animate() {
                                 radius: player.radius + 4
                             });
 
-                            
+
                         }
                         player.invincible = true;
-                        player.playerStrokeColor = 'cornflowerblue';
+                        player.playerStrokeColor = '#4cd137';
                         healthUpAudio.cloneNode().play();
                         if (playerHealth === PLAYER_MAX_HEALTH) {
-                            createPlayerStatusLabel('Invincible!', '#0fbcf9');
+                            createPlayerStatusLabel('Invincible!', '#4cd137');
                         } else {
                             if (Math.random() < 0.5) {
-                                createPlayerStatusLabel('Invincible!', '#0fbcf9');
+                                createPlayerStatusLabel('Invincible!', '#4cd137');
                             } else {
-                                createPlayerStatusLabel('+1 Life', '#0fbcf9')
+                                createPlayerStatusLabel('+1 Life', '#4cd137')
                             }
                         }
                         healthLabel.textContent = `Life: ${playerHealth}`;
@@ -475,7 +517,7 @@ function animate() {
                         // })
                         explosionAudio.cloneNode().play();
                         createPlayerStatusLabel('Get lost!', 'tomato')
-                        score += enemies.length*100
+                        score += enemies.length * 100
                         enemies.forEach((enemy, index) => {
                             for (let i = 0; i < enemy.radius * 2; i++) {
                                 particles.push(new Particle(enemy.x, enemy.y, Math.random() * enemy.radius / 8, enemy.color, {
@@ -488,13 +530,57 @@ function animate() {
                         enemies = [];
                     }
                 }, 0);
+            } else if (buff.type === 'slow') {
+                setTimeout(() => {
+                    const buffFound = buffs.find((buffValue) => {
+                        return buffValue === buff
+                    });
+
+                    if (buffFound) {
+                        buffs.splice(buffIndex, 1)
+                        // Slow enemy
+                        enemySpeedCoefficient = 0.5;
+                        isEnemySlow = true;
+                        createPlayerStatusLabel('Slow them now!', '#0097e6');
+                        slowEnemyAudio.cloneNode().play()
+
+                    }
+                }, 0);
+
+                setTimeout(() => {
+                    enemySpeedCoefficient = 1
+                    isEnemySlow = false;
+                }, 5000);
+            } else if (buff.type === 'speedUp') {
+                setTimeout(() => {
+                    const buffFound = buffs.find((buffValue) => {
+                        return buffValue === buff
+                    });
+
+                    if (buffFound) {
+                        buffs.splice(buffIndex, 1)
+                        // Increase player speed
+                        player.speed = 5*1.6
+                        player.playerStrokeColor = '#0097e6';
+                        createPlayerStatusLabel('Adidasss', '#0097e6');
+                        speedUpAudio.cloneNode().play()
+
+                        // player.speed = 5*1.6;
+                    }
+                }, 0);
+
+                setTimeout(() => {
+                    player.speed = 5;
+                    player.playerStrokeColor = 'transparent';
+                    
+                }, 5000);
             }
 
         } else {
             buff.update()
         }
     })
-    console.log(enemies.length)
+
     // Power ups
     if (player.buff === 'Automatic' && mouse.down) {
         if (frame % 8 === 0) {
@@ -541,7 +627,7 @@ function animate() {
                 if (player.invincible) {
                     score += 100;
                     enemyEliminatedAudio.cloneNode().play();
-                    
+
                     if (Math.random() < 0.5) {
                         createPlayerStatusLabel('Rampage xD')
                     } else {
@@ -550,29 +636,19 @@ function animate() {
                 } else {
 
                     playerHealth--;
-                    score -= 150;
+                    score -= 100;
                     gsap.to(player, {
                         radius: player.radius - 4
                     });
-                    
-                    if (playerHealth === 1){
-                        createPlayerStatusLabel('Near death!!!') 
-                    } else {
-                        if (Math.random() < 0.5) {
-                            createPlayerStatusLabel('Noob :P') 
-                        } else {
-                            createPlayerStatusLabel('-150')
-                        }
-    
-                    }
+                    createPlayerStatusLabel('-200');
                     playerDamageAudio.play();
                 }
-                
+
                 setTimeout(() => {
                     enemies.splice(index, 1);
                 }, 0);
 
-                
+
                 healthLabel.textContent = `Life: ${playerHealth}`
 
             } else {
@@ -703,7 +779,6 @@ startBtn.addEventListener('click', () => {
     init();
     animate();
     spawnBuffs();
-    spawnEnemies();
     container.classList.toggle('hidden');
     startGameAudio.play();
     scene.active = true;
