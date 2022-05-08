@@ -6,6 +6,10 @@ body{
     background-color: black;
 }
 
+body {
+    cursor: url(./img/default_aim.cur), auto;
+}
+
 .score{
     color: white;
     background-color: transparent;

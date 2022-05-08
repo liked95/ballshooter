@@ -38,11 +38,14 @@ const PLAYER_MAX_HEALTH = 10;
 let playerHealth = PLAYER_MAX_HEALTH;
 var playerRadius = 30;
 let playerSpeed = 5;
-const projectileSpeed = 15;
+const INITIAL_PROJECTILE_SPEED = 15;
+let projectileSpeed;
 const projectileRadius = 5;
 const friction = 0.99;
 let enemySpeedCoefficient = 1;
 let isEnemySlow = false;
+let isTripleShot = false;
+
 
 class Player {
     constructor(x, y, radius, color) {
@@ -81,8 +84,21 @@ class Player {
         const baseVelocity = { x: projectileSpeed * Math.cos(angle), y: projectileSpeed * Math.sin(angle) }
 
         const projectile = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, baseVelocity);
-
         projectiles.push(projectile);
+
+        if (isTripleShot) {
+            projectileSpeed = INITIAL_PROJECTILE_SPEED/3;
+            const divergeAngle = Math.PI / 10;
+            const leftDegree = { x: projectileSpeed * Math.cos(angle-divergeAngle), y: projectileSpeed * Math.sin(angle-divergeAngle) }
+            const projectileLeft = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, leftDegree);
+            projectiles.push(projectileLeft);
+            const rightDegree = { x: projectileSpeed * Math.cos(angle+divergeAngle), y: projectileSpeed * Math.sin(angle+divergeAngle) }
+            const projectileRight = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, rightDegree);
+            projectiles.push(projectileRight);    
+        } else {
+            projectileSpeed = INITIAL_PROJECTILE_SPEED;
+        }
+
         shootAudio.cloneNode().play()
     }
 }
@@ -408,6 +424,7 @@ let animationID;
 
 let frame = 0;
 function animate() {
+    console.log(projectiles.length)
 
     scoreBoard.textContent = `Score: ${score}`;
     animationID = requestAnimationFrame(animate);
@@ -460,7 +477,7 @@ function animate() {
                 setTimeout(() => {
                     player.buff = null;
                     player.color = '#FFFFFF'
-                }, 5000)
+                }, 10000)
 
             } else if (buff.type === 'healthup') {
 
@@ -732,6 +749,12 @@ const mouse = {
     x: undefined,
     y: undefined
 }
+addEventListener('resize', () => {
+    canvas.width = innerWidth
+    canvas.height = innerHeight
+  
+    
+})
 
 addEventListener('mousedown', ({ clientX, clientY }) => {
     mouse.x = clientX
@@ -755,6 +778,10 @@ addEventListener('click', ({ clientX, clientY }) => {
         mouse.y = clientY
         player.shoot(mouse)
     }
+})
+
+addEventListener('contextmenu', e => {
+    e.preventDefault()
 })
 
 // Smartphone
@@ -824,9 +851,28 @@ function keyLoop() {
     if (keyState[40] || keyState[83]) {
         player.y += player.speed;
     }
+    //toggle triple shot
+    
 
     setTimeout(keyLoop, 5);
 }
 
 keyLoop();
 
+if (event){
+    if (!isTripleShot){
+        isTripleShot = true;
+    } else {
+        isTripleShot = false;
+    }
+}
+
+addEventListener('keydown', e => {
+    if (e.shiftKey || e.code === 'Space'){
+        if (!isTripleShot){
+            isTripleShot = true;
+        } else {
+            isTripleShot = false;
+        }
+    }
+})
