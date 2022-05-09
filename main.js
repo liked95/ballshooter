@@ -24,6 +24,8 @@ const playerDamageAudio = new Audio('./audio/playerDamage.mp3')
 const explosionAudio = new Audio('./audio/explosion.mp3')
 const slowEnemyAudio = new Audio('./audio/slow.mp3')
 const speedUpAudio = new Audio('./audio/speedup.mp3')
+const rocketBlastAudio = new Audio('./audio/rocketBlast.mp3')
+const rocketLaunchAudio = new Audio('./audio/rocketLaunch.mp3')
 
 const backgroundAudio = new Audio('./audio/backgroundMusic.mp3')
 backgroundAudio.loop = true
@@ -44,7 +46,7 @@ const BLAST_RADIUS = 15;
 let projectileSpeed;
 const projectileRadius = 5;
 const friction = 0.99;
-const rocketSpeed = 4;
+const rocketSpeed = 3;
 let enemySpeedCoefficient = 1;
 let isEnemySlow = false;
 let isTripleShot = false;
@@ -125,6 +127,7 @@ class Projectile {
         this.radius = radius;
         this.color = color;
         this.vel = vel;
+        this.isCollide = false;
     }
 
     draw() {
@@ -395,7 +398,7 @@ class Enemy extends Projectile {
 
 function spawnEnemies() {
 
-    const radius = randomNumBetween(25, 50);
+    const radius = randomNumBetween(35, 50);
     let x;
     let y;
     // Ensure enemies spawn from the edge
@@ -440,7 +443,7 @@ function spawnBuffs() {
             y: Math.sin(angle)
         }
         buffs.push(new Buff(x, y, buffVelocity));
-    }, 10000)
+    }, 3000)
 }
 
 function createScoreLabel(projectile, score) {
@@ -746,11 +749,12 @@ function animate() {
 
         if (rocket.isExplode) {
             // rocket particles upon explosion
-            explosionAudio.cloneNode().play();
-            for (let i = 0; i < 50; i++) {
+            rocketLaunchAudio.pause();
+            rocketBlastAudio.cloneNode().play();
+            for (let i = 0; i < 250; i++) {
                 const vectorX = Math.random() - 0.5;
                 const vectorY = Math.random() <= 0.5 ? -Math.sqrt(0.25 - vectorX**2) : Math.sqrt(0.25 - vectorX**2)
-                rocketParticles.push(new RocketParticle(rocket.targetCoordinate.x, rocket.targetCoordinate.y, 5, 'red', {
+                rocketParticles.push(new RocketParticle(rocket.targetCoordinate.x, rocket.targetCoordinate.y, 5, 'rgb(239, 128, 5)', {
                     x: vectorX * BLAST_RADIUS ,
                     y: vectorY * BLAST_RADIUS
                 }));
@@ -781,7 +785,8 @@ function animate() {
 
         const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
         // Collide with enemies
-        if (dist <= player.radius + enemy.radius) {
+        if (dist <= player.radius + enemy.radius && !enemy.isEliminated) {
+            enemy.isEliminated = true;
             if (playerHealth !== 1) {
 
                 if (player.invincible) {
@@ -845,9 +850,11 @@ function animate() {
         projectiles.forEach((projectile, projectileIndex) => {
             const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
             // collision detection
-            if (dist <= projectile.radius + enemy.radius) {
+            if (dist <= projectile.radius + enemy.radius && !enemy.isEliminated && !projectile.isCollide) {
                 // Create explosion
-
+                console.log('Hello World!')
+                projectile.isCollide = true;
+                
                 for (let i = 0; i < enemy.radius * 2; i++) {
                     particles.push(new Particle(projectile.x, projectile.y, Math.random() * enemy.radius / 8, enemy.color, {
                         x: (Math.random() - 0.5) * (Math.random() * 6),
@@ -856,6 +863,7 @@ function animate() {
                 }
 
                 if (enemy.radius > 35) {
+                    
                     enemyHitAudio.cloneNode().play();
                     score += 50;
                     createScoreLabel(projectile, 50)
@@ -868,6 +876,7 @@ function animate() {
                     }, 0);
 
                 } else {
+                    enemy.isEliminated = true;
                     enemyEliminatedAudio.cloneNode().play()
                     score += 100;
                     createScoreLabel(projectile, 100)
@@ -894,12 +903,16 @@ function animate() {
             
             if ((dist <= rocketParticle.radius + enemy.radius) && !enemy.isEliminated)
             {
-                console.log('Hello World!')
+                
                 
                 enemy.isEliminated = true;
+                enemyEliminatedAudio.cloneNode().play();
+                score += 200;
+                scoreBoard.textContent = `Score: ${score}`;
+
 
                 
-                for (let i = 0; i < enemy.radius *0.3; i++) {
+                for (let i = 0; i < enemy.radius *2; i++) {
                     particles.push(new Particle(enemy.x, enemy.y, Math.random() * enemy.radius / 8, enemy.color, {
                         x: (Math.random() - 0.5) * (Math.random() * 6),
                         y: (Math.random() - 0.5) * (Math.random() * 6)
@@ -1079,5 +1092,6 @@ if (event) {
 addEventListener('keydown', e => {
     if (e.shiftKey || e.code === 'Space') {
         player.fireRocket(mouse);
+        rocketLaunchAudio.cloneNode().play()
     }
 })
