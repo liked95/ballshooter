@@ -34,14 +34,16 @@ const scene = { active: false }
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const PLAYER_MAX_HEALTH = 10;
+const PLAYER_MAX_HEALTH = 5;
 let playerHealth = PLAYER_MAX_HEALTH;
 var playerRadius = 30;
+
 let playerSpeed = 5;
 const INITIAL_PROJECTILE_SPEED = 15;
 let projectileSpeed;
 const projectileRadius = 5;
 const friction = 0.99;
+const rocketSpeed = 2;
 let enemySpeedCoefficient = 1;
 let isEnemySlow = false;
 let isTripleShot = false;
@@ -56,18 +58,24 @@ class Player {
         // moving speed
         this.invincible = false;
         this.speed = playerSpeed;
-        this.playerStrokeColor = 'transparent';
+        this.playerStrokeColor = 'white';
         this.buff = '';
+        this.gunLength = this.radius * 2/3
     }
 
     draw() {
+        const angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
         ctx.fillStyle = this.color;
         ctx.fill();
-
         ctx.strokeStyle = this.playerStrokeColor;
-        ctx.lineWidth = this.radius*0.12;
+        ctx.lineWidth = this.radius * 0.12;
+        ctx.moveTo(this.x, this.y)
+        ctx.lineTo(
+            this.x + (this.radius + this.gunLength) * Math.cos(angle), 
+            this.y + (this.radius + this.gunLength) * Math.sin(angle))
+
         ctx.stroke();
     }
 
@@ -83,23 +91,29 @@ class Player {
         const angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
         const baseVelocity = { x: projectileSpeed * Math.cos(angle), y: projectileSpeed * Math.sin(angle) }
 
-        const projectile = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, baseVelocity);
+        const projectile = new Projectile(this.x + (this.radius + this.gunLength) * Math.cos(angle), this.y + (this.radius + this.gunLength) * Math.sin(angle), projectileRadius, color, baseVelocity);
         projectiles.push(projectile);
 
         if (isTripleShot) {
-            projectileSpeed = INITIAL_PROJECTILE_SPEED/3;
-            const divergeAngle = Math.PI / 10;
-            const leftDegree = { x: projectileSpeed * Math.cos(angle-divergeAngle), y: projectileSpeed * Math.sin(angle-divergeAngle) }
-            const projectileLeft = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, leftDegree);
+            projectileSpeed = INITIAL_PROJECTILE_SPEED * 1 / 2;
+            const divergeAngle = Math.PI / 15;
+            const leftDegree = { x: projectileSpeed * Math.cos(angle - divergeAngle), y: projectileSpeed * Math.sin(angle - divergeAngle) }
+            const projectileLeft = new Projectile(this.x + (this.radius + this.gunLength) * Math.cos(angle), this.y + (this.radius + this.gunLength) * Math.sin(angle), projectileRadius, color, leftDegree);
             projectiles.push(projectileLeft);
-            const rightDegree = { x: projectileSpeed * Math.cos(angle+divergeAngle), y: projectileSpeed * Math.sin(angle+divergeAngle) }
-            const projectileRight = new Projectile(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), projectileRadius, color, rightDegree);
-            projectiles.push(projectileRight);    
+            const rightDegree = { x: projectileSpeed * Math.cos(angle + divergeAngle), y: projectileSpeed * Math.sin(angle + divergeAngle) }
+            const projectileRight = new Projectile(this.x + (this.radius + this.gunLength) * Math.cos(angle), this.y + (this.radius + this.gunLength) * Math.sin(angle), projectileRadius, color, rightDegree);
+            projectiles.push(projectileRight);
         } else {
             projectileSpeed = INITIAL_PROJECTILE_SPEED;
         }
-
         shootAudio.cloneNode().play()
+    }
+
+    fireRocket(mouse) {
+        const angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
+        const baseVelocity = { x: rocketSpeed * Math.cos(angle), y: rocketSpeed * Math.sin(angle) }
+        const rocket = new Rocket(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), baseVelocity, angle + Math.PI/4);
+        rockets.push(rocket);
     }
 }
 
@@ -152,21 +166,51 @@ class Particle extends Projectile {
     }
 }
 
+class Rocket {
+    constructor(x, y, vel, radians) {
+        this.x = x;
+        this.y = y;
+        this.vel = vel;
+        this.radians = radians;
+        this.image = rocketImg;
+        this.width = 40;
+        this.height = 40;
+
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.radians);player.radius
+        ctx.translate(-this.x - this.width / 2, -this.y - this.height / 2);
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+        ctx.restore();
+    }
+
+    update() {
+        // this.radians += 0.008;
+        this.draw();
+        this.x += this.vel.x;
+        this.y += this.vel.y;
+    }
+
+}
 
 let enemyInterval = 2000;
 const x = canvas.width / 2;
 const y = canvas.height / 2;
 let player = new Player(x, y, playerRadius, 'white')
 let projectiles = [];
+let rockets = [];
 let enemies = [];
 let particles = [];
-let backgroundParticles = [];
 let buffs = [];
 let score = 0;
 
 function init() {
     player = new Player(x, y, playerRadius, 'white')
     projectiles = [];
+    rockets = [];
     enemies = [];
     particles = [];
     buffs = [];
@@ -174,6 +218,7 @@ function init() {
     playerHealth = PLAYER_MAX_HEALTH;
     enemySpeedCoefficient = 1;
     isEnemySlow = false;
+    isTripleShot = false;
     scoreBoard.textContent = `Score: 0`;
     healthLabel.textContent = `Life: ${playerHealth}`
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -190,6 +235,8 @@ const slowImg = new Image()
 slowImg.src = './img/slow.png'
 const bootImg = new Image()
 bootImg.src = './img/boot.png'
+const rocketImg = new Image()
+rocketImg.src = './img/rocket.png'
 
 class Buff extends Projectile {
     constructor(x, y, vel) {
@@ -330,7 +377,7 @@ class Enemy extends Projectile {
 
 function spawnEnemies() {
 
-    const radius = randomNumBetween(20, 50);
+    const radius = randomNumBetween(25, 50);
     let x;
     let y;
     // Ensure enemies spawn from the edge
@@ -375,7 +422,7 @@ function spawnBuffs() {
             y: Math.sin(angle)
         }
         buffs.push(new Buff(x, y, buffVelocity));
-    }, 5000)
+    }, 1000)
 }
 
 function createScoreLabel(projectile, score) {
@@ -424,18 +471,18 @@ let animationID;
 
 let frame = 0;
 function animate() {
-    console.log(projectiles.length)
-
+    player.gunLength = player.radius * 2/3;
+    console.log(player.gunLength)
     scoreBoard.textContent = `Score: ${score}`;
     animationID = requestAnimationFrame(animate);
     frame++;
-    if (score < 5000){
+    if (score < 5000) {
         if (frame % 200 === 0) spawnEnemies();
     } else {
         if (frame % 100 === 0) spawnEnemies();
     }
-    
-    
+
+
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -466,10 +513,11 @@ function animate() {
         }
 
         // Buff effect
-        if (dist <= player.radius + buff.width / 2) {
+        if (dist <= player.radius + buff.width / 2 + 2) {
             if (buff.type === 'powerup') {
                 obtainPowerUpAudio.cloneNode().play();
                 player.color = '#FFF500';
+                player.playerStrokeColor = '#FFF500';
                 player.buff = 'Automatic';
                 createPlayerStatusLabel('Machine Gun', '#FFF500');
                 buffs.splice(buffIndex, 1);
@@ -516,7 +564,7 @@ function animate() {
                 setTimeout(() => {
                     player.invincible = false;
                     player.color = '#FFFFFF'
-                    player.playerStrokeColor = 'transparent';
+                    player.playerStrokeColor = '#FFFFFF';
                 }, 3000)
 
             } else if (buff.type === 'bomb') {
@@ -576,7 +624,7 @@ function animate() {
                     if (buffFound) {
                         buffs.splice(buffIndex, 1)
                         // Increase player speed
-                        player.speed = 5*1.6
+                        player.speed = 5 * 1.3
                         player.playerStrokeColor = '#0097e6';
                         createPlayerStatusLabel('Adidasss', '#0097e6');
                         speedUpAudio.cloneNode().play()
@@ -587,8 +635,8 @@ function animate() {
 
                 setTimeout(() => {
                     player.speed = 5;
-                    player.playerStrokeColor = 'transparent';
-                    
+                    player.playerStrokeColor = '#FFFFFF';
+
                 }, 5000);
             }
 
@@ -598,20 +646,15 @@ function animate() {
     })
 
     // Power ups
-    
-    if (player.buff === 'Automatic' && mouse.down) {
+
+    if (player.buff === 'Automatic' && (mouse.down || mouse.down2)) {
         if (frame % 10 === 0) {
             player.shoot(mouse, '#FFF500');
         }
-    } else if (mouse.down) {
+    } else if (mouse.down || mouse.down2) {
         if (frame % 20 === 0)
-        player.shoot(mouse, 'white')
+            player.shoot(mouse, 'white')
     }
-
-    // if (player.buff === 'healthIncrease') {
-    //     player.color = 'red';
-    //     playerHealth++;
-    // }
 
 
     projectiles.forEach((projectile, index) => {
@@ -625,6 +668,17 @@ function animate() {
             }, 0);
         }
     });
+
+    rockets.forEach((rocket, index) => {
+        rocket.update();
+        if (rocket.x - rocket.width / 2 > canvas.width + 50 ||
+            rocket.x + rocket.height / 2 < 0 - 50 ||
+            rocket.y - rocket.width / 2 > canvas.height + 50 ||
+            rocket.y + rocket.height / 2 < 0 - 50) {
+            rockets.splice(index, 1);
+        }
+
+    })
 
     enemies.forEach((enemy, index) => {
 
@@ -660,7 +714,7 @@ function animate() {
                     gsap.to(player, {
                         radius: player.radius - 3
                     });
-                    createPlayerStatusLabel('-200');
+                    createPlayerStatusLabel('-100');
                     playerDamageAudio.play();
                 }
 
@@ -675,6 +729,10 @@ function animate() {
                 backgroundAudio.pause();
                 endGameAudio.play();
                 scene.active = false;
+                playerHealth--;
+                healthLabel.textContent = `Life: ${playerHealth}`
+                player.radius = 0;
+                explosionAudio.cloneNode().play()
                 cancelAnimationFrame(animationID);
                 gameOverScore.textContent = score;
                 container.classList.toggle('hidden');
@@ -711,7 +769,7 @@ function animate() {
                     }));
                 }
 
-                if (enemy.radius > 25) {
+                if (enemy.radius > 35) {
                     enemyHitAudio.cloneNode().play();
                     score += 50;
                     createScoreLabel(projectile, 50)
@@ -733,10 +791,13 @@ function animate() {
                             return enemyValue === enemy
                         })
 
-                        if (enemyFound) {
-                            enemies.splice(index, 1)
-                            projectiles.splice(projectileIndex, 1)
-                        }
+                        setTimeout(() => {
+                            if (enemyFound) {
+                                enemies.splice(index, 1)
+                                projectiles.splice(projectileIndex, 1)
+                            }
+                        }, 0);
+
                     }, 0);
                 }
             }
@@ -746,21 +807,30 @@ function animate() {
 
 const mouse = {
     down: false,
+    down2: false,
     x: undefined,
     y: undefined
 }
+
+
 addEventListener('resize', () => {
     canvas.width = innerWidth
     canvas.height = innerHeight
-  
-    
+
+
 })
 
-addEventListener('mousedown', ({ clientX, clientY }) => {
-    mouse.x = clientX
-    mouse.y = clientY
+addEventListener('mousedown', (e) => {
+    if (e.button === 0) {
+        mouse.down = true
+    }
 
-    mouse.down = true
+    if (e.button === 2) {
+        mouse.down2 = true
+        isTripleShot = true
+    }
+    mouse.x = e.clientX
+    mouse.y = e.clientY
 })
 
 addEventListener('mousemove', ({ clientX, clientY }) => {
@@ -768,20 +838,34 @@ addEventListener('mousemove', ({ clientX, clientY }) => {
     mouse.y = clientY
 })
 
-addEventListener('mouseup', () => {
-    mouse.down = false
+addEventListener('mouseup', (e) => {
+    if (e.button === 0) {
+        mouse.down = false
+    }
+
+    if (e.button === 2) {
+        mouse.down2 = false
+        isTripleShot = false
+    }
 })
 
-addEventListener('click', ({ clientX, clientY }) => {
+addEventListener('click', (e) => {
     if (scene.active && player.buff !== 'Automatic') {
-        mouse.x = clientX
-        mouse.y = clientY
+        mouse.x = e.clientX
+        mouse.y = e.clientY
         player.shoot(mouse)
     }
 })
 
 addEventListener('contextmenu', e => {
     e.preventDefault()
+
+
+    // if (scene.active && player.buff !== 'Automatic') {
+    //     mouse.x = e.clientX
+    //     mouse.y = e.clientY
+    //     player.shoot(mouse)
+    // }
 })
 
 // Smartphone
@@ -852,27 +936,25 @@ function keyLoop() {
         player.y += player.speed;
     }
     //toggle triple shot
-    
+
 
     setTimeout(keyLoop, 5);
 }
 
 keyLoop();
 
-if (event){
-    if (!isTripleShot){
+if (event) {
+    if (!isTripleShot) {
         isTripleShot = true;
     } else {
         isTripleShot = false;
     }
 }
 
+
+
 addEventListener('keydown', e => {
-    if (e.shiftKey || e.code === 'Space'){
-        if (!isTripleShot){
-            isTripleShot = true;
-        } else {
-            isTripleShot = false;
-        }
+    if (e.shiftKey || e.code === 'Space') {
+        player.fireRocket(mouse);
     }
 })
