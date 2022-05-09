@@ -42,7 +42,8 @@ var playerRadius = 30;
 
 let playerSpeed = 5;
 const INITIAL_PROJECTILE_SPEED = 15;
-const BLAST_RADIUS = 15;
+const INITIAL_BLAST_RADIUS = 8;
+let blastRadius;
 let projectileSpeed;
 const projectileRadius = 5;
 const friction = 0.99;
@@ -235,6 +236,7 @@ function init() {
     rocketParticles = [];
     buffs = [];
     score = 0;
+    blastRadius = INITIAL_BLAST_RADIUS;
     playerHealth = PLAYER_MAX_HEALTH;
     enemySpeedCoefficient = 1;
     isEnemySlow = false;
@@ -443,7 +445,7 @@ function spawnBuffs() {
             y: Math.sin(angle)
         }
         buffs.push(new Buff(x, y, buffVelocity));
-    }, 3000)
+    }, 8000)
 }
 
 function createScoreLabel(projectile, score) {
@@ -502,6 +504,8 @@ function animate() {
     } else {
         if (frame % 100 === 0) spawnEnemies();
     }
+
+    if (score > 1000) blastRadius = INITIAL_BLAST_RADIUS * 1.5;
 
 
 
@@ -754,9 +758,9 @@ function animate() {
             for (let i = 0; i < 250; i++) {
                 const vectorX = Math.random() - 0.5;
                 const vectorY = Math.random() <= 0.5 ? -Math.sqrt(0.25 - vectorX**2) : Math.sqrt(0.25 - vectorX**2)
-                rocketParticles.push(new RocketParticle(rocket.targetCoordinate.x, rocket.targetCoordinate.y, 5, 'rgb(239, 128, 5)', {
-                    x: vectorX * BLAST_RADIUS ,
-                    y: vectorY * BLAST_RADIUS
+                rocketParticles.push(new RocketParticle(rocket.targetCoordinate.x, rocket.targetCoordinate.y, 5, randomRGB(), {
+                    x: vectorX * blastRadius ,
+                    y: vectorY * blastRadius
                 }));
             }
 
@@ -801,11 +805,10 @@ function animate() {
                 } else {
 
                     playerHealth--;
-                    score -= 100;
                     gsap.to(player, {
                         radius: player.radius - 3
                     });
-                    createPlayerStatusLabel('-100');
+                    createPlayerStatusLabel('Noob');
                     playerDamageAudio.play();
                 }
 
@@ -862,7 +865,7 @@ function animate() {
                     }));
                 }
 
-                if (enemy.radius > 35) {
+                if (enemy.radius >= 35) {
                     
                     enemyHitAudio.cloneNode().play();
                     score += 50;
