@@ -40,10 +40,11 @@ var playerRadius = 30;
 
 let playerSpeed = 5;
 const INITIAL_PROJECTILE_SPEED = 15;
+const BLAST_RADIUS = 15;
 let projectileSpeed;
 const projectileRadius = 5;
 const friction = 0.99;
-const rocketSpeed = 2;
+const rocketSpeed = 4;
 let enemySpeedCoefficient = 1;
 let isEnemySlow = false;
 let isTripleShot = false;
@@ -60,7 +61,7 @@ class Player {
         this.speed = playerSpeed;
         this.playerStrokeColor = 'white';
         this.buff = '';
-        this.gunLength = this.radius * 2/3
+        this.gunLength = this.radius * 2 / 3
     }
 
     draw() {
@@ -73,7 +74,7 @@ class Player {
         ctx.lineWidth = this.radius * 0.12;
         ctx.moveTo(this.x, this.y)
         ctx.lineTo(
-            this.x + (this.radius + this.gunLength) * Math.cos(angle), 
+            this.x + (this.radius + this.gunLength) * Math.cos(angle),
             this.y + (this.radius + this.gunLength) * Math.sin(angle))
 
         ctx.stroke();
@@ -112,7 +113,7 @@ class Player {
     fireRocket(mouse) {
         const angle = Math.atan2(mouse.y - this.y, mouse.x - this.x);
         const baseVelocity = { x: rocketSpeed * Math.cos(angle), y: rocketSpeed * Math.sin(angle) }
-        const rocket = new Rocket(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), baseVelocity, angle + Math.PI/4);
+        const rocket = new Rocket(this.x + this.radius * Math.cos(angle), this.y + this.radius * Math.sin(angle), baseVelocity, angle + Math.PI / 4, { x: mouse.x, y: mouse.y });
         rockets.push(rocket);
     }
 }
@@ -166,8 +167,17 @@ class Particle extends Projectile {
     }
 }
 
+class RocketParticle extends Particle {
+    constructor(x, y, radius, color, vel) {
+        super(x, y, radius, color, vel);
+        this.alpha = 1;
+        this.isCollide = false;
+    }
+
+}
+
 class Rocket {
-    constructor(x, y, vel, radians) {
+    constructor(x, y, vel, radians, targetCoordinate) {
         this.x = x;
         this.y = y;
         this.vel = vel;
@@ -175,13 +185,18 @@ class Rocket {
         this.image = rocketImg;
         this.width = 40;
         this.height = 40;
+        this.targetCoordinate = {
+            x: targetCoordinate.x,
+            y: targetCoordinate.y
+        }
+        this.isExplode = false;
 
     }
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.rotate(this.radians);player.radius
+        ctx.rotate(this.radians); player.radius
         ctx.translate(-this.x - this.width / 2, -this.y - this.height / 2);
         ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
         ctx.restore();
@@ -204,6 +219,7 @@ let projectiles = [];
 let rockets = [];
 let enemies = [];
 let particles = [];
+let rocketParticles = [];
 let buffs = [];
 let score = 0;
 
@@ -213,6 +229,7 @@ function init() {
     rockets = [];
     enemies = [];
     particles = [];
+    rocketParticles = [];
     buffs = [];
     score = 0;
     playerHealth = PLAYER_MAX_HEALTH;
@@ -311,6 +328,7 @@ class Enemy extends Projectile {
         this.spinningRadius = 70;
         this.strokeColor = 'transparent';
         this.lineWidth = 1;
+        this.isEliminated = false;
     }
 
     draw() {
@@ -422,7 +440,7 @@ function spawnBuffs() {
             y: Math.sin(angle)
         }
         buffs.push(new Buff(x, y, buffVelocity));
-    }, 1000)
+    }, 10000)
 }
 
 function createScoreLabel(projectile, score) {
@@ -471,8 +489,8 @@ let animationID;
 
 let frame = 0;
 function animate() {
-    player.gunLength = player.radius * 2/3;
-    console.log(player.gunLength)
+
+    player.gunLength = player.radius * 2 / 3;
     scoreBoard.textContent = `Score: ${score}`;
     animationID = requestAnimationFrame(animate);
     frame++;
@@ -488,11 +506,20 @@ function animate() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     player.draw();
     player.checkEdges();
+
     particles.forEach((particle, index) => {
         if (particle.alpha <= 0) {
             particles.splice(index, 1);
         } else {
             particle.update();
+        }
+    });
+
+    rocketParticles.forEach((rocketParticle, index) => {
+        if (rocketParticle.alpha <= 0) {
+            rocketParticles.splice(index, 1);
+        } else {
+            rocketParticle.update();
         }
     });
 
@@ -525,6 +552,7 @@ function animate() {
                 setTimeout(() => {
                     player.buff = null;
                     player.color = '#FFFFFF'
+                    player.playerStrokeColor = '#FFFFFF';
                 }, 10000)
 
             } else if (buff.type === 'healthup') {
@@ -671,6 +699,8 @@ function animate() {
 
     rockets.forEach((rocket, index) => {
         rocket.update();
+        
+        // If rockets go out of the canvas
         if (rocket.x - rocket.width / 2 > canvas.width + 50 ||
             rocket.x + rocket.height / 2 < 0 - 50 ||
             rocket.y - rocket.width / 2 > canvas.height + 50 ||
@@ -678,8 +708,64 @@ function animate() {
             rockets.splice(index, 1);
         }
 
+        enemies.forEach((enemy, enemyIndex) => {
+            const dist = Math.hypot(rocket.x - enemy.x, rocket.y - enemy.y);
+            if (dist <= enemy.radius + rocket.width / 2 && !rocket.isCollide) {
+                rocket.isExplode = true;
+                // update targetCoordinate
+                rocket.targetCoordinate.x = enemy.x;
+                rocket.targetCoordinate.y = enemy.y;
+
+                
+
+                setTimeout(() => {
+                    const enemyFound = enemies.find((enemyValue) => {
+                        return enemyValue === enemy
+                    })
+
+                    setTimeout(() => {
+                        if (enemyFound) {
+                            enemies.splice(enemyIndex, 1)
+                            rockets.splice(index, 1)
+                        }
+                    }, 0);
+
+                }, 0);
+            }
+        })
+
+        // Rocket targeting 
+        if (rocket.x >= rocket.targetCoordinate.x - 5 &&
+            rocket.x <= rocket.targetCoordinate.x + 5 &&
+            rocket.y >= rocket.targetCoordinate.y - 5 &&
+            rocket.y <= rocket.targetCoordinate.y + 5) {
+            rocket.isExplode = true;
+            rockets.splice(index, 1);
+            
+        }
+
+        if (rocket.isExplode) {
+            // rocket particles upon explosion
+            explosionAudio.cloneNode().play();
+            for (let i = 0; i < 50; i++) {
+                const vectorX = Math.random() - 0.5;
+                const vectorY = Math.random() <= 0.5 ? -Math.sqrt(0.25 - vectorX**2) : Math.sqrt(0.25 - vectorX**2)
+                rocketParticles.push(new RocketParticle(rocket.targetCoordinate.x, rocket.targetCoordinate.y, 5, 'red', {
+                    x: vectorX * BLAST_RADIUS ,
+                    y: vectorY * BLAST_RADIUS
+                }));
+            }
+
+        }
+
+
+
+       
+
+
     })
 
+    // console.log(rocketParticles.length)
     enemies.forEach((enemy, index) => {
 
         // if enemies go out of the canvas
@@ -802,6 +888,43 @@ function animate() {
                 }
             }
         })
+
+        rocketParticles.forEach((rocketParticle, rocketParticleIndex) => {
+            const dist = Math.hypot(rocketParticle.x - enemy.x, rocketParticle.y - enemy.y);
+            
+            if ((dist <= rocketParticle.radius + enemy.radius) && !enemy.isEliminated)
+            {
+                console.log('Hello World!')
+                
+                enemy.isEliminated = true;
+
+                
+                for (let i = 0; i < enemy.radius *0.3; i++) {
+                    particles.push(new Particle(enemy.x, enemy.y, Math.random() * enemy.radius / 8, enemy.color, {
+                        x: (Math.random() - 0.5) * (Math.random() * 6),
+                        y: (Math.random() - 0.5) * (Math.random() * 6)
+                    }));
+                }
+                
+
+                setTimeout(() => {
+                    const enemyFound = enemies.find((enemyValue) => {
+                        return enemyValue === enemy
+                    })
+
+                    setTimeout(() => {
+                        if (enemyFound) {
+                            enemies.splice(index, 1)
+                            rocketParticles.splice(rocketParticleIndex, 1)
+                        }
+                    }, 0);
+
+                }, 0);
+            }
+        })
+
+
+
     })
 }
 
@@ -898,7 +1021,7 @@ startBtn.addEventListener('click', () => {
     scene.active = true;
     setTimeout(() => {
         backgroundAudio.play();
-    }, 2000);
+    }, 5000);
 
 
 });
